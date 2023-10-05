@@ -1,5 +1,4 @@
 const mongoose = require('mongoose');
-
 const TourSchema = new mongoose.Schema(
   {
     name: {
@@ -33,6 +32,9 @@ const TourSchema = new mongoose.Schema(
       default: 4.5,
       min: [1, 'Rating must be above 1.0'],
       max: [5, 'Rating must be below 5.0'],
+      set: (val) => {
+        Math.round(val * 10) / 10;
+      },
     },
     ratingsQuantity: {
       type: Number,
@@ -76,6 +78,41 @@ const TourSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    startLocation: {
+      type: {
+        type: String,
+        default: 'Point',
+        enum: ['Point'],
+      },
+      coordinates: [Number],
+      address: String,
+      description: String,
+    },
+    locations: [
+      {
+        type: {
+          type: String,
+          default: 'Point',
+          enum: ['Point'],
+        },
+        coordinates: [Number],
+        address: String,
+        description: String,
+        day: Number,
+      },
+    ],
+    guides: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+      },
+    ],
+    review: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Review',
+      },
+    ],
   },
   {
     toJSON: { virtuals: true },
@@ -83,6 +120,33 @@ const TourSchema = new mongoose.Schema(
   },
 );
 
-const Tour = mongoose.model('tour', TourSchema);
+// TourSchema.index({ price: 1 });
+TourSchema.index({ price: 1, ratingsAverage: -1 });
+TourSchema.index({ slug: 1 });
+TourSchema.index({ startLocation: '2dsphere' });
+
+// TourSchema.pre('save', async function (next) {
+//   const guidesPromises = this.guides.map(async (id) => await User.findById(id));
+//   this.guides = await Promise.all(guidesPromises);
+//   next();
+// });
+
+// Virtual populate
+TourSchema.virtual('reviews', {
+  ref: 'Review',
+  foreignField: 'tour',
+  localField: '_id',
+});
+
+TourSchema.pre(/^find/, function (next) {
+  this.populate({
+    path: 'guides',
+    select: '-__v -passwordChangeAt',
+  });
+
+  next();
+});
+
+const Tour = mongoose.model('Tour', TourSchema);
 
 module.exports = Tour;
